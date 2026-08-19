@@ -1,0 +1,69 @@
+# fwdproxy 配置文件
+# 放在二进制同目录并命名为 fwdproxy.conf 即自动读取，无需 -config 参数。
+#
+# 语法：key = value，整行以 # 开头为注释。这里不是 shell，不要写 export；
+# 值两端的成对引号会被去掉，值中间的 # 不算注释。
+# 命令行参数优先级高于本文件，方便临时调试。
+# 权限务必收紧：chown root:fwdproxy fwdproxy.conf && chmod 640 fwdproxy.conf
+
+# ---- 监听 ----
+# 要给别的机器用，必须监听对外地址。安全完全依赖防火墙白名单，见文末。
+addr = :8443
+
+# ---- 认证（必填）----
+# 一个凭据都没有且未加 -no-auth 时，程序会拒绝启动，不会静默变成开放代理。
+#
+# 单用户写法：
+user = fwd
+pass = 换成一个足够长的随机串
+#
+# 多用户写法：auth 可以写多行，每行 name:password，用于区分不同调用方。
+# 访问日志里会带上 user=<name>，方便按来源统计和排查。密码可以含冒号，
+# 只有第一个冒号是分隔符。
+# auth = ai-img:密码1
+# auth = other-app:密码2
+
+# ---- 客户端到代理这一段的 TLS（可选，默认不启用）----
+# 先分清两件事：
+#   1) 被代理的 HTTPS 流量（到 api.openai.com）本来就是端到端加密的，代理只转发
+#      密文、看不到明文。这跟下面的配置无关，不配证书也是加密的。
+#   2) 这里的 TLS 保护的是"部署机 -> 代理机"这一段，让 Proxy-Authorization
+#      （base64，等同明文）不在公网上裸奔。
+#
+# 客户端不需要任何证书（那是 mTLS，本程序不做），但需要能校验服务端证书：
+#   * Let's Encrypt 等公共 CA 签发（需要域名）：客户端零配置，只写
+#     HTTPS_PROXY=https://user:pass@域名:8443 即可，推荐。
+#   * 自签证书：客户端必须额外拿到 CA 文件配置信任，requests 可用
+#     REQUESTS_CA_BUNDLE 环境变量，httpx/OpenAI SDK 视版本可能要显式传 verify=，
+#     意味着要改调用方代码。上线前务必在测试环境验证。
+#
+# 启用 TLS 后客户端的代理 URL 必须写 https:// 前缀，写 http:// 会连不上。
+# 注意 HTTP_PROXY 也要写成 https://——这个 scheme 指的是"到代理的连接"，
+# 不是"被代理的流量"。已实测 requests 2.32 / httpx 0.28 均支持 https 代理，
+# 显式传参和读 HTTPS_PROXY 环境变量两种方式都可用，调用方无需改代码。
+#
+# 自签证书生成（SAN 必须包含代理机的 IP 或域名，现代客户端已不看 CN）：
+#   openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 \
+#     -nodes -subj "/CN=fwdproxy" -addext "subjectAltName=IP:代理机IP"
+#
+# 不配这两项时走普通 HTTP 代理，客户端用 HTTPS_PROXY=http://user:pass@host:8443。
+# tls-cert = /data/apps/fwdproxy/cert/fullchain.pem
+# tls-key  = /data/apps/fwdproxy/cert/privkey.pem
+
+# ---- 并发与超时 ----
+max-conns = 512
+dial-timeout = 15s
+# 必须大于上游最慢的响应耗时：生图类请求可能几百秒没有任何字节流动，
+# 这个值设小了会把正常的长等待当成死连接掐断。0 = 禁用。
+tunnel-idle-timeout = 15m
+
+# ============================================================
+# 部署后务必配置防火墙，只放行部署机 IP。公网裸奔的 HTTP 代理
+# 通常几小时内就会被扫到并当作开放代理滥用。
+#   firewall-cmd --permanent --add-rich-rule='rule family=ipv4 \
+#     source address=部署机IP/32 port port=8443 protocol=tcp accept'
+#   firewall-cmd --reload
+# 或 iptables：
+#   iptables -A INPUT -p tcp --dport 8443 -s 部署机IP -j ACCEPT
+#   iptables -A INPUT -p tcp --dport 8443 -j DROP
+# ============================================================

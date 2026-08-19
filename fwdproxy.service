@@ -1,0 +1,28 @@
+[Unit]
+Description=fwdproxy - HTTP/HTTPS forward proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fwdproxy
+Group=fwdproxy
+# 二进制同目录下的 fwdproxy.conf 自动生效，log/ 自动创建，无需额外参数。
+ExecStart=/data/apps/fwdproxy/fwdproxy
+# systemctl reload fwdproxy 会重开日志文件（供外部 logrotate 使用）
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=3
+
+# 加固：除自身目录（需写 log/）外不需要任何写权限
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/data/apps/fwdproxy
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target
