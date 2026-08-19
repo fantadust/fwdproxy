@@ -125,6 +125,8 @@ done  CONNECT api.example.com:443 id=42 user=ai-img client=1.2.3.4 status=200 up
 拒绝目标 github.com:443 user=ai-img client=1.2.3.4
 ```
 
+认证失败默认走 **stealth 模式**：给探测者回普通的 404/400，不带 `Proxy-Authenticate`、不暴露自己是代理，降低被扫描器识别和标记的概率。但服务端日志里 `认证失败` 照常记录，不影响排查。需要标准 407 挑战或直接断开时，改配置里的 `auth-fail`（`407` / `close`）。
+
 之所以要 `start`：生图这类请求可能几百秒才返回，只在结束时打日志的话，这期间从日志上完全看不出有请求在跑。并发时两条日志会互相穿插，靠 `id=` 配对。
 
 `up`/`down` 是隧道双向字节数，`conns` 是请求进入时的活跃连接数。认证失败和拒绝目标不受 `access-log` 开关控制，始终记录——用来发现扫描和爆破。日志只记目标 host，不记 path/query，避免 URL 里的 token 落盘。

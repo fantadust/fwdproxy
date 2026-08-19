@@ -38,6 +38,8 @@ var (
 	user     = flag.String("user", "", "Basic 认证用户名（单用户简写，等价于一条 auth）")
 	pass     = flag.String("pass", "", "Basic 认证密码（单用户简写）")
 	noAuth   = flag.Bool("no-auth", false, "显式关闭认证（危险：将成为开放代理，仅限本机调试）")
+	authFail = flag.String("auth-fail", "stealth",
+		"认证失败时如何响应：stealth=装成普通 web 服务（不暴露这是代理）、407=标准代理挑战、close=直接断开连接")
 	allowRaw = flag.String("allow", "", "目标域名白名单，逗号分隔；留空表示允许全部目标")
 	dialTO   = flag.Duration("dial-timeout", 15*time.Second, "连接上游超时")
 
@@ -362,6 +364,42 @@ func authUser(r *http.Request) (string, bool) {
 	return matched, matched != ""
 }
 
+// rejectAuth 响应认证失败。默认 stealth：不回 407、不带 Proxy-Authenticate，
+// 免得扫描器一眼看出这个端口是代理。
+// 之所以能这么做：curl / requests / httpx 在代理 URL 里带了凭据时，都会在第一个
+// 请求就直接发 Proxy-Authorization，并不依赖服务端先回 407 挑战，所以隐身不影响
+// 正常客户端。只有需要"先探测再补认证"的客户端才要改回 407。
+func rejectAuth(w http.ResponseWriter, r *http.Request) {
+	switch *authFail {
+	case "close":
+		// 什么都不回，直接断开。扫描器只能看到连接被关。
+		if hj, ok := w.(http.Hijacker); ok {
+			if c, _, err := hj.Hijack(); err == nil {
+				c.Close()
+				return
+			}
+		}
+		// hijack 不可用时退回 stealth
+	case "407":
+		// realm 不写软件名，避免指纹
+		w.Header().Set("Proxy-Authenticate", `Basic realm="Proxy"`)
+		http.Error(w, "proxy authentication required", http.StatusProxyAuthRequired)
+		return
+	}
+
+	// stealth：普通 web 服务器收到 CONNECT 会回 400、收到普通请求回 404，跟着这个行为走。
+	// 不用 http.Error，免得多出 X-Content-Type-Options 这类可作指纹的头。
+	status := http.StatusNotFound
+	if r.Method == http.MethodConnect {
+		status = http.StatusBadRequest
+	}
+	text := http.StatusText(status)
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(status)
+	fmt.Fprintf(w, "<html><head><title>%d %s</title></head><body><h1>%d %s</h1></body></html>\n",
+		status, text, status, text)
+}
+
 func handle(w http.ResponseWriter, r *http.Request) {
 	target := r.Host
 	if r.Method != http.MethodConnect {
@@ -372,8 +410,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		// 认证失败不受 -access-log 控制：这是安全事件，用来发现扫描和爆破。
 		log.Printf("认证失败 client=%s method=%s target=%s", clientIP(r), r.Method, target)
-		w.Header().Set("Proxy-Authenticate", `Basic realm="fwdproxy"`)
-		http.Error(w, "proxy authentication required", http.StatusProxyAuthRequired)
+		rejectAuth(w, r)
 		return
 	}
 
@@ -593,6 +630,9 @@ func main() {
 		seenName[name] = true
 		creds = append(creds, cred{name: name, blob: []byte(a)})
 	}
+	if *authFail != "stealth" && *authFail != "407" && *authFail != "close" {
+		fatalf("auth-fail 取值须为 stealth / 407 / close，实际为 %q", *authFail)
+	}
 	// fail-closed：配置文件缺失或键名写错时宁可起不来，也不能静默变成开放代理。
 	if !*noAuth && len(creds) == 0 {
 		fatalf("未配置认证凭据：请在配置文件里设置 user/pass 或 auth；确需关闭认证请显式加 -no-auth")
@@ -639,6 +679,7 @@ func main() {
 	if *noAuth {
 		log.Printf("警告：已用 -no-auth 关闭认证，任何能连到本端口的人都可使用本代理")
 	}
+	log.Printf("认证失败响应模式=%s", *authFail)
 	if len(allow) == 0 {
 		log.Printf("提醒：未设置 allow 白名单，允许访问任意目标；请确保防火墙只放行可信来源 IP")
 	}
