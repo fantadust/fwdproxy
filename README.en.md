@@ -177,3 +177,7 @@ No go.mod required — build straight from the bare directory:
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fwdproxy-linux-amd64 main.go
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o fwdproxy-linux-arm64 main.go
 ```
+
+## License
+
+[MIT](LICENSE)

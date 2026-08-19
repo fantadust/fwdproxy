@@ -153,3 +153,7 @@ grep -c '^.\{20\}start' log/fwdproxy.log      # 统计请求数
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fwdproxy-linux-amd64 main.go
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o fwdproxy-linux-arm64 main.go
 ```
+
+## 许可
+
+[MIT](LICENSE)
