@@ -59,17 +59,33 @@ sudo systemctl status fwdproxy
 
 ## 升级已有部署
 
-运行中的二进制不能被直接覆盖，先改名再替换（`mv` 对运行中的文件是允许的，
-只改目录项，进程继续用旧 inode）：
+仓库提供两个脚本，把升级拆成互不干扰的两步（放在二进制同目录执行）：
 
 ```bash
-# 上传 fwdproxy-linux-amd64 到 /tmp 后
-sudo systemctl stop fwdproxy
-sudo mv /data/apps/fwdproxy/fwdproxy /data/apps/fwdproxy/fwdproxy.bak   # 留着好回滚
-sudo mv /tmp/fwdproxy-linux-amd64 /data/apps/fwdproxy/fwdproxy
+# 1) 新二进制就位——不影响在跑的服务，随时可做
+#    mv 只改目录项，运行中的进程继续用旧 inode；备份旧版到 fwdproxy.bak，
+#    并校验 ELF 魔数与 CPU 架构，挡掉传错的文件
+sudo ./install-bin.sh                 # 默认取 ./fwdproxy-linux-amd64
+
+# 2) 重启生效——默认等到端口上没有正在进行的请求才重启
+#    生图类请求可长达几百秒，直接重启会掐断
+sudo ./restart.sh                     # 等待当前请求跑完再重启
+sudo ./restart.sh --timeout 300       # 最长等 5 分钟
+sudo ./restart.sh --force             # 立即重启（会中断请求）
+```
+
+`restart.sh` 启动自检失败会自动回滚到 `fwdproxy.bak`。之所以拆两步：移动文件对
+运行中的服务无害，有风险的只有重启，分开后可以先随时备好新版，再挑无请求的时机切换。
+
+手动等价流程（不想用脚本时）：
+
+```bash
+sudo mv /data/apps/fwdproxy/fwdproxy /data/apps/fwdproxy/fwdproxy.bak
+sudo mv fwdproxy-linux-amd64 /data/apps/fwdproxy/fwdproxy
 sudo chmod +x /data/apps/fwdproxy/fwdproxy
 sudo chown fwdproxy:fwdproxy /data/apps/fwdproxy/fwdproxy
-sudo systemctl start fwdproxy && sudo systemctl status fwdproxy
+# 挑个没有请求在跑的时机：
+sudo systemctl restart fwdproxy && sudo systemctl status fwdproxy
 ```
 
 确认新版生效：新版每个请求打两条日志，`tail -f log/fwdproxy.log` 后发一个请求，
