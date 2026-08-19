@@ -2,6 +2,7 @@
 fwdproxy
 fwdproxy-linux-amd64
 fwdproxy-linux-arm64
+SHA256SUMS.txt
 
 # 运行时产物
 fwdproxy.conf
