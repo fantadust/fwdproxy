@@ -114,14 +114,14 @@ indiscriminately.
 If the password contains `@`, `:`, `/` and similar characters, URL-encode it inside the
 proxy URL.
 
-Verified working with requests 2.32 and httpx 0.28 (the transport under the OpenAI SDK),
+Verified working with requests 2.32 and httpx 0.28 (the transport under most Python SDKs),
 for `https://` proxies, both via explicit arguments and via the `HTTPS_PROXY`
 environment variable — callers need no code changes.
 
 Verify:
 
 ```bash
-curl -x "http://user:password@PROXY_IP:8443" https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
+curl -x "http://user:password@PROXY_IP:8443" https://api.example.com/v1/models -H "Authorization: Bearer $API_KEY"
 ```
 
 Note that the upstream API sees the **proxy machine's** egress IP, not the client's. If
@@ -132,9 +132,9 @@ the API key is IP-restricted, allowlist the proxy machine.
 Two lines per request — one `start` on arrival, one `done` on completion, paired by `id=`:
 
 ```
-start CONNECT api.openai.com:443 id=42 user=ai-img client=1.2.3.4 conns=3
-done  CONNECT api.openai.com:443 id=42 user=ai-img client=1.2.3.4 status=200 up=585 down=4823 dur=218ms
-认证失败 client=5.6.7.8 method=CONNECT target=api.openai.com:443
+start CONNECT api.example.com:443 id=42 user=ai-img client=1.2.3.4 conns=3
+done  CONNECT api.example.com:443 id=42 user=ai-img client=1.2.3.4 status=200 up=585 down=4823 dur=218ms
+认证失败 client=5.6.7.8 method=CONNECT target=api.example.com:443
 拒绝目标 github.com:443 user=ai-img client=1.2.3.4
 ```
 

@@ -1,4 +1,4 @@
-// fwdproxy —— 极简 HTTP/HTTPS 正向代理，供内网机器访问外部 API（如 api.openai.com）。
+// fwdproxy —— 极简 HTTP/HTTPS 正向代理，供内网机器访问外部 API。
 //
 // 特性：CONNECT 隧道（HTTPS）+ 明文 HTTP 转发、Proxy Basic 认证、目标域名白名单、
 // 访问日志（自动轮转）、并发连接数上限。只依赖 Go 标准库。

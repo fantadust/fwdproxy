@@ -25,7 +25,7 @@ pass = 换成一个足够长的随机串
 
 # ---- 客户端到代理这一段的 TLS（可选，默认不启用）----
 # 先分清两件事：
-#   1) 被代理的 HTTPS 流量（到 api.openai.com）本来就是端到端加密的，代理只转发
+#   1) 被代理的 HTTPS 流量（到上游 API）本来就是端到端加密的，代理只转发
 #      密文、看不到明文。这跟下面的配置无关，不配证书也是加密的。
 #   2) 这里的 TLS 保护的是"部署机 -> 代理机"这一段，让 Proxy-Authorization
 #      （base64，等同明文）不在公网上裸奔。
@@ -34,7 +34,7 @@ pass = 换成一个足够长的随机串
 #   * Let's Encrypt 等公共 CA 签发（需要域名）：客户端零配置，只写
 #     HTTPS_PROXY=https://user:pass@域名:8443 即可，推荐。
 #   * 自签证书：客户端必须额外拿到 CA 文件配置信任，requests 可用
-#     REQUESTS_CA_BUNDLE 环境变量，httpx/OpenAI SDK 视版本可能要显式传 verify=，
+#     REQUESTS_CA_BUNDLE 环境变量，httpx 等客户端视版本可能要显式传 verify=，
 #     意味着要改调用方代码。上线前务必在测试环境验证。
 #
 # 启用 TLS 后客户端的代理 URL 必须写 https:// 前缀，写 http:// 会连不上。

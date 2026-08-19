@@ -104,24 +104,24 @@ NO_PROXY=localhost,127.0.0.1,::1,.aliyuncs.com,.volces.com,dashscope.aliyuncs.co
 
 密码里有 `@` `:` `/` 等字符时要按 URL 编码写进代理 URL。
 
-已实测 requests 2.32 / httpx 0.28（含 OpenAI SDK 底层）对 `https://` 代理支持完好，显式传参和读 `HTTPS_PROXY` 环境变量都可用，调用方无需改代码。
+已实测 requests 2.32 / httpx 0.28（多数 Python SDK 的底层）对 `https://` 代理支持完好，显式传参和读 `HTTPS_PROXY` 环境变量都可用，调用方无需改代码。
 
 验证：
 
 ```bash
-curl -x "http://用户:密码@代理机IP:8443" https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
+curl -x "http://用户:密码@代理机IP:8443" https://api.example.com/v1/models -H "Authorization: Bearer $API_KEY"
 ```
 
-注意 OpenAI 看到的来源 IP 是**代理机**的出口 IP，不是部署机的。API key 若绑了 IP 白名单，要绑代理机 IP。
+注意上游 API 看到的来源 IP 是**代理机**的出口 IP，不是部署机的。API key 若绑了 IP 白名单，要绑代理机 IP。
 
 ## 日志
 
 每个请求落两条日志，进来时一条 `start`，结束时一条 `done`，用 `id=` 配对：
 
 ```
-start CONNECT api.openai.com:443 id=42 user=ai-img client=1.2.3.4 conns=3
-done  CONNECT api.openai.com:443 id=42 user=ai-img client=1.2.3.4 status=200 up=585 down=4823 dur=218ms
-认证失败 client=5.6.7.8 method=CONNECT target=api.openai.com:443
+start CONNECT api.example.com:443 id=42 user=ai-img client=1.2.3.4 conns=3
+done  CONNECT api.example.com:443 id=42 user=ai-img client=1.2.3.4 status=200 up=585 down=4823 dur=218ms
+认证失败 client=5.6.7.8 method=CONNECT target=api.example.com:443
 拒绝目标 github.com:443 user=ai-img client=1.2.3.4
 ```
 
